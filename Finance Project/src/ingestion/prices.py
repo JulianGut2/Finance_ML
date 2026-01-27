@@ -1,4 +1,6 @@
 import pandas as pd
+import yfinance as yf
+import os
 
 def normalize_prices(raw_df, tickers):
 
@@ -51,3 +53,33 @@ def normalize_prices(raw_df, tickers):
      
     df = df[cols].sort_values(["ticker", "date"]).reset_index(drop = True)
     return df
+
+
+def fetch_prices(tickers, start, end, interval = "1d", cache_dir = "data/raw"):
+    if isinstance(tickers, str):
+        tickers_list = [tickers]
+    else:
+        tickers_list = list(tickers)
+
+    tickers_key = "-".join(sorted(tickers_list))
+    filename = f"prices{tickers_key}_{start}_{end}_{interval}.parquet"
+    path = os.path.join(cache_dir, filename)
+
+    os.makedirs(cache_dir, exist_ok = True)
+
+    if os.path.exists(path):
+        return pd.read_parquet(path)
+    
+    raw = yf.download(
+        tickers_list,
+        start = start,
+        end = end,
+        interval = interval,
+        auto_adjust = False,
+        progress = False,
+        group_by = "column",
+    )
+
+    tidy = normalize_prices(raw, tickers_list)
+    tidy.to_parquet(path, index = False)
+    return tidy
